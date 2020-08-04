@@ -1,0 +1,87 @@
+- name: docker_Ansible_Automation
+  hosts: all
+  tasks:
+     - name: creating dvd folder
+       file:
+          path: /dvd
+          state: directory   
+     - name: mounting cdrom on dvd folder
+       mount:
+          path: /dvd/
+          src: /dev/cdrom
+          fstype: iso9660
+          opts: ro,loop
+          state: present
+     - name: configuring yum for local repo AppStream     
+       yum_repository:
+          name: AppStream
+          description: repo for local appstream
+          file: dvd1
+          baseurl: file:///dvd/AppStream
+          gpgcheck: no
+     - name: configuring yum for local repo BaseOS     
+       yum_repository:
+          name: BaseOS   
+          description: repo for baseos
+          file: dvd2
+          baseurl: file:///dvd/BaseOS
+          gpgcheck: no
+     - yum:
+          name: yum-utils
+          state: latest
+     - yum: 
+          name: device-mapper-persistent-data
+          state: latest
+     - yum:
+          name: lvm2
+          state: latest     
+     - name: Configuring docker repo
+       yum_repository:
+          name: docker 
+          description: docker yum repo
+          baseurl: https://download.docker.com/linux/centos/7/x86_64/stable/
+          gpgcheck: no      
+     - name: Installing docker
+       yum:
+          name: "docker-ce-18.03.0.*"
+          state: present
+     - name: start the docker services
+       service:
+             name: docker
+             state: started    
+     - name: Installing python intrepreter
+       command: "yum install python3 -y"
+     - name: DOcker SDK for python
+       pip: 
+             name: "docker-py"        
+     - name: Docker pulling image
+       docker_image: 
+             name: httpd
+             source: pull
+     - name: creating a workspace
+       file:
+             path: /website
+             state: directory
+
+     - name: transfering files from CN to MN
+       copy:
+             src: /mycode/website/web_page.html
+             dest: "/website/" 
+     - name: Launching docker container
+       docker_container:
+             name: web_container
+             image: httpd
+             exposed_ports: "80"
+             ports:
+                   - "8085:80"
+             state: started
+             volumes: 
+                   - "/website/:/usr/local/apache2/htdocs/"
+     - name: Disabling selinux security
+       command: setenforce 0 
+     - name : Disabling firewalld
+       firewalld :
+             service: https
+             permanent: true
+             state: enabled
+
